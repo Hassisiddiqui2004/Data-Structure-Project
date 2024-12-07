@@ -59,6 +59,30 @@ class RoadNetwork
             head = newNode;
             return newNode;
         }
+        void removeTravelTime(IntersectionNode* node, const string& to)
+        {
+            // Remove the travel time from the linked list
+            Travel_time* temp = node->edge;
+            Travel_time* prev = NULL;
+            while(temp != NULL)
+            {
+                if(temp->destination == to)
+                {
+                    if(prev == NULL)
+                    {
+                        node->edge = temp->next;
+                    }
+                    else
+                    {
+                        prev->next = temp->next;
+                    }
+                    delete temp;
+                    return;
+                }
+                prev = temp;
+                temp = temp->next;
+            }
+        }
     public:
         RoadNetwork()
         {
@@ -70,6 +94,37 @@ class RoadNetwork
             IntersectionNode* toNode = findIntersection(to);
             addTravelTime(fromNode, to, t);
             addTravelTime(toNode, from, t);
+        }
+        void removeIntersection(const string& n)
+        {
+            // Remove the intersection
+            IntersectionNode* temp = head;
+            IntersectionNode* prev = NULL;
+            while(temp != NULL)
+            {
+                if(temp->name == n)
+                {
+                    if(prev == NULL)
+                    {
+                        head = temp->next;
+                    }
+                    else
+                    {
+                        prev->next = temp->next;
+                    }
+                    delete temp;
+                    return;
+                }
+                prev = temp;
+                temp = temp->next;
+            }
+        }
+        void removeTravelTime(const string& from, const string& to)
+        {
+            IntersectionNode* fromNode = findIntersection(from);
+            IntersectionNode* toNode = findIntersection(to);
+            removeTravelTime(fromNode, to);
+            removeTravelTime(toNode, from);
         }
         void print()
         {
