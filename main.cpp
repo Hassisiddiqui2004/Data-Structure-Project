@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include<sstream>
 
 using namespace std;
 
@@ -216,7 +217,89 @@ public:
         removeTravelTime(from, to);
     }
 };
+struct RoadSignals {
+    string Road;
+    int SignalTime;
+    RoadSignals* next;
 
+    bool operator< (RoadSignals& a) {
+        return this->SignalTime < a.SignalTime;
+    }
+
+    RoadSignals(string r, int t) : Road(r), SignalTime(t), next(nullptr) {}
+};
+
+class TrafficSignals {
+private:
+    RoadSignals* head;
+
+public:
+    // Constructor
+    TrafficSignals() : head(nullptr) {}
+
+    // Insert a new RoadSignal into the priority queue
+    void insert(string road, int signalTime) {
+        RoadSignals* newNode = new RoadSignals(road, signalTime);
+
+        // If the queue is empty or the new node has the highest priority
+        if (!head || signalTime < head->SignalTime) {
+            newNode->next = head;
+            head = newNode;
+            return;
+        }
+
+        // Find the correct position to insert the new node
+        RoadSignals* temp = head;
+        while (temp->next && temp->next->SignalTime <= signalTime) {
+            temp = temp->next;
+        }
+
+        newNode->next = temp->next;
+        temp->next = newNode;
+    }
+
+    // Remove the highest priority element (head of the list)
+    string dequeue() {
+        if (!head) {
+            cout << "Traffic signal queue is empty!" << endl;
+            return "";
+        }
+
+        RoadSignals* temp = head;
+        string road = head->Road;
+        head = head->next;
+        delete temp;
+        return road;
+    }
+
+    // Peek at the highest priority element without removing it
+    string peek() {
+        if (!head) {
+            cout << "Traffic signal queue is empty!" << endl;
+            return "";
+        }
+        return head->Road;
+    }
+
+    // Check if the priority queue is empty
+    bool isEmpty() {
+        return head == nullptr;
+    }
+
+    // Display all signals in the queue
+    void display() {
+        if (!head) {
+            cout << "Traffic signal queue is empty!" << endl;
+            return;
+        }
+
+        RoadSignals* temp = head;
+        while (temp) {
+            cout << "InterSection : " << temp->Road << ", Green Time: " << temp->SignalTime << endl;
+            temp = temp->next;
+        }
+    }
+};
 // Function to read the road network data from a CSV file
 void read_roadNetwork(const string& filename, RoadNetwork& road) {
     ifstream file(filename);
@@ -263,7 +346,36 @@ void read_roadNetwork(const string& filename, RoadNetwork& road) {
 
     file.close();
 }
+void read_trafficSignals(const string& filename, TrafficSignals& obj) {
+    ifstream file(filename);
 
+    // Check if file opened successfully
+    if (!file.is_open()) {
+        cerr << "Error: Could not open file " << filename << endl;
+        return;
+    }
+
+    string line;
+    while (getline(file, line)) {
+        stringstream ss(line);
+        string road;
+        string signalTimeStr;
+        int signalTime;
+
+        // Read Road and SignalTime from CSV
+        if (getline(ss, road, ',') && getline(ss, signalTimeStr)) {
+            try {
+                signalTime = stoi(signalTimeStr);
+                // Insert into the TrafficSignals object
+                obj.insert(road, signalTime);
+            } catch (const invalid_argument& e) {
+                cerr << "Error: Invalid data format in line: " << line << endl;
+            }
+        }
+    }
+
+    file.close();
+}
 // Function to read road closures and remove corresponding roads
 void read_roadClosures(const string& filename, RoadNetwork& road) {
     ifstream file(filename);
@@ -297,9 +409,9 @@ void read_roadClosures(const string& filename, RoadNetwork& road) {
 
     file.close();
 }
-
 int main() {
     RoadNetwork road;
+    TrafficSignals signals;
     
     // Read road network data from CSV file
     read_roadNetwork("road_network.csv", road);
@@ -322,6 +434,9 @@ int main() {
     // Calculate the shortest path after road closures
     cout << "\nShortest Path (After Dijkstra's with Road Closures): " << endl;
     road.dijkstra("A", "F");
+
+    read_trafficSignals("traffic_signals.csv", signals );
+    signals.display();
 
     return 0;
 }
