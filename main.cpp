@@ -23,6 +23,39 @@ struct IntersectionNode {
     IntersectionNode(const string& n, IntersectionNode* ne = NULL, Travel_time* e = NULL)
         : name(n), next(ne), edge(e) {}
 };
+struct RoadSignals {
+    string Road;
+    int SignalTime;
+    RoadSignals* next;
+
+    bool operator< (RoadSignals& a) {
+        return this->SignalTime < a.SignalTime;
+    }
+
+    RoadSignals(string r, int t) : Road(r), SignalTime(t), next(nullptr) {}
+};
+
+struct StackNode {
+    string from;
+    string to;
+    StackNode* next;
+    StackNode(const string& f, const string& t, StackNode* n = NULL)
+        : from(f), to(t), next(n) {}
+};
+
+struct HashNode {
+    char start;   // Start intersection
+    char end;     // End intersection
+    int vehicleCount;
+    HashNode* next;
+
+    bool operator==(const HashNode& obj) const {
+        return (this->start == obj.start && this->end == obj.end);
+    }
+
+    HashNode(char s, char e) : start(s), end(e), vehicleCount(1), next(NULL) {}
+};
+
 
 // RoadNetwork class that manages intersections and roads between them
 class RoadNetwork {
@@ -264,17 +297,40 @@ public:
         }
     }
 };
-struct RoadSignals {
-    string Road;
-    int SignalTime;
-    RoadSignals* next;
+// Custom stack class for storing blocked roads
+class BlockedRoadStack {
+private:
+    StackNode* top;
+public:
+    BlockedRoadStack() : top(NULL) {}
 
-    bool operator< (RoadSignals& a) {
-        return this->SignalTime < a.SignalTime;
+    void push(const string& from, const string& to) {
+        StackNode* newNode = new StackNode(from, to);
+        newNode->next = top;
+        top = newNode;
     }
 
-    RoadSignals(string r, int t) : Road(r), SignalTime(t), next(nullptr) {}
+    void pop() {
+        if (top != NULL) {
+            StackNode* temp = top;
+            top = top->next;
+            delete temp;
+        }
+    }
+
+    bool isEmpty() const {
+        return top == NULL;
+    }
+
+    void print() const {
+        StackNode* temp = top;
+        while (temp != NULL) {
+            cout << "Blocked Road: " << temp->from << " -> " << temp->to << endl;
+            temp = temp->next;
+        }
+    }
 };
+
 
 class TrafficSignals {
 private:
@@ -347,6 +403,8 @@ public:
         }
     }
 };
+
+
 // Function to read the road network data from a CSV file
 void read_roadNetwork(const string& filename, RoadNetwork& road) {
     ifstream file(filename);
@@ -452,7 +510,7 @@ void read_trafficSignals(const string& filename, TrafficSignals& obj) {
 }
 
 // Function to read road closures and remove corresponding roads
-void read_roadClosures(const string& filename, RoadNetwork& road) {
+void read_roadClosures(const string& filename, RoadNetwork& road, BlockedRoadStack& blockedRoads) {
     ifstream file(filename);
     if (!file.is_open()) {
         cout << "Error: Unable to open the road closure file" << endl;
@@ -477,6 +535,12 @@ void read_roadClosures(const string& filename, RoadNetwork& road) {
         string from = line.substr(0, pos1);
         string to = line.substr(pos1 + 1, pos2 - pos1 - 1);
 
+        // Push the blocked road to the stack
+        string status = line.substr(pos2+1);
+        if(status == "Blocked")
+        {
+            blockedRoads.push(from, to);
+        }
         // Remove the road
         road.removeRoads(from, to);
         road.removeRoads(to, from);  // Since roads are bi-directional
@@ -485,9 +549,188 @@ void read_roadClosures(const string& filename, RoadNetwork& road) {
     file.close();
 }
 
+class VehicleHashTable {
+private:
+    HashNode** table;
+    int capacity;
+    int size;
+    const float loadFactor = 0.75;
+
+    // Hash function to calculate index based on start and end
+    int hash(char start, char end) {
+        return ((start - 'A') * 26 + (end - 'A')) % capacity;
+    }
+
+    // Resize the hash table when load factor exceeds the threshold
+    void resize() {
+        int newCapacity = capacity * 2;
+        HashNode** newTable = new HashNode*[newCapacity]();
+
+        for (int i = 0; i < capacity; i++) {
+            HashNode* node = table[i];
+            while (node) {
+                int newIndex = hash(node->start, node->end) % newCapacity;
+                HashNode* nextNode = node->next;
+
+                // Reinsert node into new table
+                node->next = newTable[newIndex];
+                newTable[newIndex] = node;
+
+                node = nextNode;
+            }
+        }
+
+        delete[] table;
+        table = newTable;
+        capacity = newCapacity;
+    }
+
+public:
+    VehicleHashTable(int initialCapacity = 10) : capacity(initialCapacity), size(0) {
+        table = new HashNode*[capacity]();
+    }
+
+    ~VehicleHashTable() {
+        for (int i = 0; i < capacity; i++) {
+            HashNode* node = table[i];
+            while (node) {
+                HashNode* temp = node;
+                node = node->next;
+                delete temp;
+            }
+        }
+        delete[] table;
+    }
+
+    // Insert or update vehicle count for a road
+    void insert(char start, char end) {
+        int index = hash(start, end) % capacity;
+        HashNode* node = table[index];
+        while (node) {
+            if (node->start == start && node->end == end) {
+                node->vehicleCount++;
+                return;
+            }
+            node = node->next;
+        }
+
+        // Insert new node
+        node = new HashNode(start, end);
+        node->next = table[index];
+        table[index] = node;
+        size++;
+
+        if (size > capacity * loadFactor) {
+            resize();
+        }
+    }
+
+    // Display all road segments and their vehicle counts
+    void display() {
+        for (int i = 0; i < capacity; i++) {
+            HashNode* node = table[i];
+            while (node) {
+                cout << "Road: (" << node->start << " -> " << node->end << "), Vehicles: " << node->vehicleCount << endl;
+                node = node->next;
+            }
+        }
+    }
+    
+    void displayCongestion() {
+        const int numIntersections = 26; // For intersections 'A' to 'Z'
+        int routeCounts[numIntersections][numIntersections] = {0}; // 2D array to store counts
+
+        // Traverse all intersections as start and end points
+        for (char start = 'A'; start <= 'Z'; ++start) {
+            for (char end = 'A'; end <= 'Z'; ++end) {
+                if (start == end) continue; // Skip if start and end are the same
+                
+                int totalVehicles = 0; // Initialize vehicle count for the route
+
+                // Traverse through the hash table
+                for (int i = 0; i < capacity; ++i) {
+                    HashNode* node = table[i];
+                    while (node != nullptr) {
+                        // Check if the current route is part of the path between start and end
+                        if ((node->start >= start && node->end <= end) || 
+                            (node->start <= end && node->end >= start)) {
+                            totalVehicles += node->vehicleCount;
+                        }
+                        node = node->next;
+                    }
+                }
+
+                // Store the cumulative vehicle count in the 2D array
+                if (totalVehicles > 0) {
+                    routeCounts[start - 'A'][end - 'A'] = totalVehicles;
+                }
+            }
+        }
+
+        // Display the cumulative vehicle counts
+        cout << "------ CongestionStatus ------" << endl;
+        for (char start = 'A'; start <= 'Z'; ++start) {
+            for (char end = 'A'; end <= 'Z'; ++end) {
+                if (start != end && routeCounts[start - 'A'][end - 'A'] > 0) {
+                    cout << start << " to " << end << " -> Vehicles: " 
+                        << routeCounts[start - 'A'][end - 'A'] << endl;
+                }
+            }
+        }
+    }
+};
+
+
+// Function to read vehicle data from a CSV file
+void read_vehicles(const string& filename, VehicleHashTable& obj) {
+    ifstream file(filename);
+
+    // Check if the file opened successfully
+    if (!file.is_open()) {
+        cout << "Error: Unable to open the vehicles file" << endl;
+        return;
+    }
+
+    string line;
+    getline(file, line); // Skip the first line (header)
+
+    while (getline(file, line)) {
+        int commaPos = -1;
+        
+        // Find the position of the first comma manually
+        for (int i = 0; i < line.length(); i++) {
+            if (line[i] == ',') {
+                commaPos = i;
+                break;
+            }
+        }
+
+        // Ensure the comma exists and there's enough data after the comma
+        if (commaPos == -1 || commaPos + 3 >= line.length()) {
+            cerr << "Error: Invalid line format: " << line << endl;
+            continue;
+        }
+
+        // Extract the vehicle ID (substring before the comma)
+        string vehicleID = line.substr(0, commaPos);
+
+        // Extract the start and end nodes (characters after the comma)
+        char start = line[commaPos + 1];
+        char end = line[commaPos + 3];
+
+        // Insert the start and end nodes into the VehicleHashTable
+        obj.insert(start, end);
+    }
+
+    file.close();
+}
+
 int main() {
     RoadNetwork road;
     TrafficSignals signals;
+    BlockedRoadStack blockedRoads;
+    VehicleHashTable vehicleData;
+
     // Read road network data from CSV file
     read_roadNetwork("road_network.csv", road);
     
@@ -503,7 +746,7 @@ int main() {
     road.findPaths(start, destination);
 
     // Read road closures from a file and update the road network
-    read_roadClosures("road_closures.csv", road);
+    read_roadClosures("road_closures.csv", road, blockedRoads);
 
     // Print the updated road network after road closures
     cout << "\nUpdated Road Network (After Road Closures): " << endl;
@@ -515,5 +758,15 @@ int main() {
 
     read_trafficSignals("traffic_signals.csv", signals );
     signals.display();
+
+    blockedRoads.print();
+
+    // Read vehicle data from a CSV file
+    read_vehicles("vehicles.csv", vehicleData);
+
+    // Display the vehicle data
+    cout << "\nVehicle Data: " << endl;
+    vehicleData.display();
+
     return 0;
 }
