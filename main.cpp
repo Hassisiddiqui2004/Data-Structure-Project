@@ -1,10 +1,7 @@
 #include<iostream>
 #include<fstream>
 #include<string>
-#include<sstream>
-
 using namespace std;
-
 struct Travel_time
 {
     string destination;
@@ -143,25 +140,55 @@ class RoadNetwork
             }
         }
 };
-
-void read_roadNetwork(const string& filename, RoadNetwork& road)
+void read_roadNetwork(const string& filename, RoadNetwork& road) 
 {
-    ifstream file;
-    file.open(filename.c_str());
-    if(file.fail())
+    ifstream file(filename);
+    if (!file.is_open()) 
     {
         cout << "Error: Unable to open the file" << endl;
         return;
     }
+
     string line;
     getline(file, line); // Skip the first line
-    while (getline(file, line)) {
-        istringstream ss(line);
-        string from, to, weightStr;
 
-        if (std::getline(ss, from, ',') && std::getline(ss, to, ',') && std::getline(ss, weightStr)) {
-            int weight = stoi(weightStr);
+    while (getline(file, line)) 
+    {
+        // Find the positions of the delimiters
+        int pos1 = line.find(',');
+        int pos2 = line.find_last_of(',');
+
+        // Validate positions
+        if (pos1 == -1 || pos2 == -1 || pos1 == pos2) 
+        {
+            cout << "Error: Invalid line format: " << line << endl;
+            continue;
+        }
+
+        // Extract fields
+        string from = line.substr(0, pos1);
+        string to = line.substr(pos1 + 1, pos2 - pos1 - 1);
+        string weightStr = line.substr(pos2 + 1);
+
+        // Check if weightStr is a valid number
+        bool isValidNumber = true;
+        for (char c : weightStr) 
+        {
+            if (!isdigit(c)) 
+            {
+                isValidNumber = false;
+                break;
+            }
+        }
+
+        if (isValidNumber) 
+        {
+            int weight = stoi(weightStr); // Convert the weight to an integer
             road.addTravelTime(from, to, weight);
+        } 
+        else 
+        {
+            cout << "Error: Invalid weight value in line: " << line << endl;
         }
     }
 
