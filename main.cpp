@@ -60,7 +60,6 @@ struct HashNode {
 // RoadNetwork class that manages intersections and roads between them
 class RoadNetwork {
 private:
-    IntersectionNode* head;
 
     void addTravelTime(IntersectionNode* node, const string& to, int t) {
         Travel_time* newNode = new Travel_time(to, t);
@@ -99,7 +98,8 @@ private:
             temp = temp->next;
         }
     }
-    void findAllPathsDFS(const string& start, const string& destination, bool visited[], string path[], int& pathIndex, string allPaths[]) {
+    // Find all paths with DFS and weight calculation
+    void findAllPathsDFS(const string& start, const string& destination, bool visited[], string path[], int& pathIndex, string allPaths[], int allWeights[], int weight) {
         visited[start[0] - 'A'] = true;  // Mark current node as visited
         path[pathIndex] = start;          // Add to current path
         pathIndex++;
@@ -113,6 +113,7 @@ private:
                 }
             }
             allPaths[pathIndex - 1] = tempPath;
+            allWeights[pathIndex - 1] = weight;  // Store the total weight of this path
         } else {
             IntersectionNode* node = head;
             while (node != NULL) {
@@ -120,7 +121,9 @@ private:
                     Travel_time* edge = node->edge;
                     while (edge != NULL) {
                         if (!visited[edge->destination[0] - 'A']) {
-                            findAllPathsDFS(edge->destination, destination, visited, path, pathIndex, allPaths);
+                            weight += edge->time;  // Add the weight of the edge
+                            findAllPathsDFS(edge->destination, destination, visited, path, pathIndex, allPaths, allWeights, weight);
+                            weight -= edge->time;  // Backtrack by removing the weight
                         }
                         edge = edge->next;
                     }
@@ -133,6 +136,7 @@ private:
         visited[start[0] - 'A'] = false; // Unmark node
     }
 public:
+    IntersectionNode* head;
     RoadNetwork() : head(NULL) {}
 
     void addTravelTime(const string& from, const string& to, int t) {
@@ -281,20 +285,34 @@ public:
     void removeRoads(const string& from, const string& to) {
         removeTravelTime(from, to);
     }
-    void findPaths(const string& start, const string& destination) {
-        bool visited[26] = {false};
-        string path[100];
-        string allPaths[100];
-        int pathIndex = 0;
-       
-    findAllPathsDFS(start, destination, visited, path, pathIndex, allPaths);
+    void displayAllPaths(const string& start, const string& destination) {
+            // Array for visited nodes and paths
+        bool visited[26] = {false};  // Assuming there are 4 nodes (A, B, C, D)
+        string path[1000];             // Path for storing the current route
+        int pathIndex = 0;          // Index to track the path
+        string allPaths[1000];        // Array to store all paths
+        int allWeights[1000];         // Array to store the weights of all paths
 
-        cout << "All possible paths from " << start << " to " << destination << " are:" << endl;
-        for (int i = 0; i < 100; i++) {
+        int weight = 0;             // Variable to track the weight (travel time)
+        // Find all paths from A to D
+        findAllPathsDFS(start, destination, visited, path, pathIndex, allPaths, allWeights, weight);
+
+        // Display all paths and their weights
+        for (int i = 0; i < 10; i++) {
             if (!allPaths[i].empty()) {
-                cout << allPaths[i] << endl;
+                cout << allPaths[i] << " | Weight: " << allWeights[i] << endl;
             }
         }
+    }
+    IntersectionNode* getIntersection(const string& n) {
+        IntersectionNode* temp = head;
+        while (temp != NULL) {
+            if (temp->name == n) {
+                return temp;
+            }
+            temp = temp->next;
+        }
+        return NULL;
     }
 };
 // Custom stack class for storing blocked roads
@@ -390,7 +408,8 @@ public:
     }
 
     // Display all signals in the queue
-    void display() {
+    void display() 
+    {
         if (!head) {
             cout << "Traffic signal queue is empty!" << endl;
             return;
@@ -400,6 +419,57 @@ public:
         while (temp) {
             cout << "InterSection : " << temp->Road << ", Green Time: " << temp->SignalTime << endl;
             temp = temp->next;
+        }
+    }
+    int* getGreenTime()
+    {
+        if (!head) {
+            cout << "Traffic signal queue is empty!" << endl;
+            return nullptr;
+        }
+        else
+        {
+            int* greenTime = new int[26];
+            RoadSignals* temp = head;
+            while (temp) {
+                greenTime[temp->Road[0] - 'A'] = temp->SignalTime;
+                temp = temp->next;
+            }
+            return greenTime;
+        }
+    }
+    void setGreenTime(string intersection, int time, int index) {
+        if (isEmpty()) {
+            cout << "Traffic signal queue is empty!" << endl;
+            return;
+        }
+        else
+        {
+            RoadSignals* temp = head;
+            while (temp) {
+                if (temp->Road == intersection) {
+                    temp->SignalTime = time;
+                    break;
+                }
+                temp = temp->next;
+            }
+        }
+    }
+    void resetGreenTime(string intersection, int normalTime, int index) {
+        if (isEmpty()) {
+            cout << "Traffic signal queue is empty!" << endl;
+            return;
+        }
+        else
+        {
+            RoadSignals* temp = head;
+            while (temp) {
+                if (temp->Road == intersection) {
+                    temp->SignalTime = normalTime;
+                    break;
+                }
+                temp = temp->next;
+            }
         }
     }
 };
@@ -451,6 +521,173 @@ void read_roadNetwork(const string& filename, RoadNetwork& road) {
 
     file.close();
 }
+
+class EmergencyVehicleHandling {
+public:
+    RoadNetwork* roadNetwork;
+    TrafficSignals* trafficSignals;
+    string allPaths[26];  // Array to store paths (max 26 paths)
+    int allWeights[1000]; // Array to store the weights for each path
+
+    EmergencyVehicleHandling(RoadNetwork* network, TrafficSignals* signals) {
+        roadNetwork = network;
+        trafficSignals = signals;
+    }
+
+    // Simple heuristic function (returns 0 for simplicity, can be customized)
+    int heuristic(const string& current, const string& goal) {
+        return 0;  // Modify this for an actual heuristic if needed
+    }
+
+    void handleEmergencyVehicle(const string& start, const string& destination) {
+        const int MAX_NODES = 100;
+        string nodeNames[MAX_NODES];
+        int gCost[MAX_NODES];     // Cost from start to current node
+        int fCost[MAX_NODES];     // Estimated total cost (g + h)
+        bool visited[MAX_NODES];  // Track visited nodes
+        int parent[MAX_NODES];    // To reconstruct the path
+
+        IntersectionNode* nodes[MAX_NODES];
+        int nodeCount = 0;
+        IntersectionNode* temp = roadNetwork->head;
+
+        // Initialize the node arrays
+        while (temp != NULL) {
+            nodes[nodeCount] = temp;
+            nodeNames[nodeCount] = temp->name;
+            gCost[nodeCount] = INF;
+            fCost[nodeCount] = INF;
+            visited[nodeCount] = false;
+            parent[nodeCount] = -1;
+            nodeCount++;
+            temp = temp->next;
+        }
+
+        // Find start and destination indices
+        int startIndex = -1, destIndex = -1;
+        for (int i = 0; i < nodeCount; i++) {
+            if (nodeNames[i] == start) startIndex = i;
+            if (nodeNames[i] == destination) destIndex = i;
+        }
+
+        if (startIndex == -1 || destIndex == -1) {
+            cout << "Start or destination node not found!" << endl;
+            return;
+        }
+
+        // Initialize the priority queue (simple implementation)
+        int openSet[MAX_NODES];
+        int openSetSize = 1;
+        openSet[0] = startIndex;
+
+        gCost[startIndex] = 0;
+        fCost[startIndex] = heuristic(start, destination);
+
+        while (openSetSize > 0) {
+            // Find node with the smallest fCost in the open set
+            int currentIndex = openSet[0];
+            int currentMinF = fCost[currentIndex];
+            int minIndex = 0;
+
+            for (int i = 1; i < openSetSize; i++) {
+                if (fCost[openSet[i]] < currentMinF) {
+                    currentIndex = openSet[i];
+                    currentMinF = fCost[currentIndex];
+                    minIndex = i;
+                }
+            }
+
+            // Remove the current node from the open set
+            openSetSize--;
+            for (int i = minIndex; i < openSetSize; i++) {
+                openSet[i] = openSet[i + 1];
+            }
+            visited[currentIndex] = true;
+
+            // If we reached the destination
+            if (currentIndex == destIndex) {
+                break;
+            }
+
+            // Get the current node's neighbors
+            IntersectionNode* currentNode = nodes[currentIndex];
+            Travel_time* edge = currentNode->edge;
+
+            while (edge != NULL) {
+                int neighborIndex = -1;
+                for (int i = 0; i < nodeCount; i++) {
+                    if (nodeNames[i] == edge->destination) {
+                        neighborIndex = i;
+                        break;
+                    }
+                }
+
+                if (neighborIndex != -1 && !visited[neighborIndex]) {
+                    int tentativeGCost = gCost[currentIndex] + edge->time;
+
+                    if (tentativeGCost < gCost[neighborIndex]) {
+                        gCost[neighborIndex] = tentativeGCost;
+                        fCost[neighborIndex] = gCost[neighborIndex] + heuristic(edge->destination, destination);
+                        parent[neighborIndex] = currentIndex;
+
+                        // Add neighbor to the open set if not already present
+                        bool inOpenSet = false;
+                        for (int i = 0; i < openSetSize; i++) {
+                            if (openSet[i] == neighborIndex) {
+                                inOpenSet = true;
+                                break;
+                            }
+                        }
+                        if (!inOpenSet) {
+                            openSet[openSetSize++] = neighborIndex;
+                        }
+                    }
+                }
+                edge = edge->next;
+            }
+        }
+
+        // Reconstruct and display the path
+        if (gCost[destIndex] == INF) {
+            cout << "No path found for the emergency vehicle!" << endl;
+            return;
+        }
+
+        cout << "Emergency vehicle path from " << start << " to " << destination << " is: ";
+        int path[MAX_NODES];
+        int pathLength = 0;
+        int current = destIndex;
+
+        while (current != -1) {
+            path[pathLength++] = current;
+            current = parent[current];
+        }
+
+        for (int i = pathLength - 1; i >= 0; i--) {
+            cout << nodeNames[path[i]];
+            if (i != 0) cout << " -> ";
+        }
+        cout << endl;
+
+        cout << "Total travel time: " << gCost[destIndex] << " units" << endl;
+
+        // Override traffic signals for the emergency vehicle's path
+        for (int i = pathLength - 1; i >= 0; i--) {
+            string intersection = nodeNames[path[i]];
+            trafficSignals->setGreenTime(intersection, 0, i);
+            cout << "Override green time at intersection " << intersection << " to 0." << endl;
+        }
+
+        // Restore normal green times after the emergency vehicle passes
+        for (int i = pathLength - 1; i >= 0; i--) {
+            string intersection = nodeNames[path[i]];
+            int normalGreenTime = 30;  // Assuming the normal green time is 30
+            trafficSignals->resetGreenTime(intersection, normalGreenTime, i);
+            cout << "Restored green time at intersection " << intersection << " to " << normalGreenTime << "." << endl;
+        }
+    }
+};
+// Function to read traffic signals from a CSV file
 void read_trafficSignals(const string& filename, TrafficSignals& obj) {
     ifstream file(filename);
 
@@ -542,8 +779,11 @@ void read_roadClosures(const string& filename, RoadNetwork& road, BlockedRoadSta
             blockedRoads.push(from, to);
         }
         // Remove the road
-        road.removeRoads(from, to);
-        road.removeRoads(to, from);  // Since roads are bi-directional
+        if(status == "Clear")
+        {
+            road.removeRoads(from, to);
+            road.removeRoads(to, from);
+        }  // Since roads are bi-directional
     }
 
     file.close();
@@ -681,6 +921,7 @@ public:
 };
 
 
+
 // Function to read vehicle data from a CSV file
 void read_vehicles(const string& filename, VehicleHashTable& obj) {
     ifstream file(filename);
@@ -743,7 +984,8 @@ int main() {
     // Print all possible paths
     string start = "A";
     string destination = "F";
-    road.findPaths(start, destination);
+    cout<<"displaying all paths from A to F"<<endl;
+    road.displayAllPaths(start, destination);
 
     // Read road closures from a file and update the road network
     read_roadClosures("road_closures.csv", road, blockedRoads);
@@ -768,5 +1010,9 @@ int main() {
     cout << "\nVehicle Data: " << endl;
     vehicleData.display();
 
+    EmergencyVehicleHandling evHandler(&road, &signals);
+
+    // Handle emergency vehicle from A to F
+    evHandler.handleEmergencyVehicle("A", "F");
     return 0;
 }
