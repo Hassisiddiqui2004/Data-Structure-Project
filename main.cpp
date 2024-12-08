@@ -1057,44 +1057,43 @@ void read_emergencyVehicle(const string& filename, EmergencyVehicleHandling& obj
 }
 int main()
 {
-    RoadNetwork Orignal_road,road;
+    RoadNetwork Orignal_road, road;
     TrafficSignals signals;
     BlockedRoadStack blockedRoads;
     VehicleHashTable vehicleData;
+
     read_roadNetwork("road_network.csv", Orignal_road);
     read_roadNetwork("road_network.csv", road);
-    read_trafficSignals("traffic_signals.csv","vehicles.csv", signals );
+    read_trafficSignals("traffic_signals.csv", "vehicles.csv", signals);
     read_vehicles("vehicles.csv", vehicleData);
     read_roadClosures("road_closures.csv", road, blockedRoads);
-
-
-    cout<<"-------Simulation of Traffic Signals and Emergency Vehicle Handling-------"<<endl;
-    cout<<"1. Display the City Traffic Network(initial)"<<endl;
-    cout<<"2. Display Traffic Signal Status"<<endl;
-    cout<<"3. Display Congestion Status"<<endl;
-    cout<<"4. Display Blocked Roads"<<endl;
-    cout<<"5. Handle Emergency Vehicle Routing"<<endl;
-    cout<<"6. Block Roads due to Accident"<<endl;
-    cout<<"7. Simulate Vehicle Routing"<<endl;
-    cout<<"8. Display the City Network of Working Roads"<<endl;
-    cout<<"9. Handle Emergency Vehicle Routing for CSV file"<<endl;
-    cout<<"10. Apply Dijkstra's Algorithm"<<endl;
-    cout<<"11. Exit"<<endl;
-    cout<<"---------------------------------------------------------------------------"<<endl;
 
     int choice = 0;
 
     while(true)
     {
-        if(choice == 11)
-        break;
-        cout<<"Enter your choice: ";
-        cin>>choice;
+        cout << "-------Simulation of Traffic Signals and Emergency Vehicle Handling-------" << endl;
+        cout << "1. Display the City Traffic Network (Initial)" << endl;
+        cout << "2. Display Traffic Signal Status" << endl;
+        cout << "3. Display Congestion Status" << endl;
+        cout << "4. Display Blocked Roads" << endl;
+        cout << "5. Handle Emergency Vehicle Routing" << endl;
+        cout << "6. Block Roads due to Accident" << endl;
+        cout << "7. Simulate Vehicle Routing" << endl;
+        cout << "8. Display the City Network of Working Roads" << endl;
+        cout << "9. Handle Emergency Vehicle Routing for CSV file" << endl;
+        cout << "10. Apply Dijkstra's Algorithm" << endl;
+        cout << "11. Exit" << endl;
+        cout << "---------------------------------------------------------------------------" << endl;
+
+        cout << "Enter your choice: ";
+        cin >> choice;
+
         switch(choice)
         {
             case 1:
                 {
-                    cout<<"Initial Road Network: "<<endl;
+                    cout << "Initial Road Network: " << endl;
                     Orignal_road.print();
                     break;
                 }
@@ -1115,20 +1114,19 @@ int main()
                 }
             case 5:
                 {
-                    cout<<"Enter the start and end intersection for emergency vehicle routing: ";
+                    cout << "Enter the start and end intersection for emergency vehicle routing: ";
                     char start, end;
-                    cin>>start>>end;
-                    cout<<"Emergency Vehicle is being Routed...."<<endl;
+                    cin >> start >> end;
+                    cout << "Emergency Vehicle is being Routed...." << endl;
                     EmergencyVehicleHandling evHandler(&road, &signals);
-                    evHandler.handleEmergencyVehicle(string(1,start), string(1,end));
-                    evHandler.~EmergencyVehicleHandling();
+                    evHandler.handleEmergencyVehicle(string(1, start), string(1, end));
                     break;
                 }
             case 6:
                 {
-                    cout<<"Enter the road to be blocked(start , end): ";
+                    cout << "Enter the road to be blocked (start , end): ";
                     string from, to;
-                    cin>>from>>to;
+                    cin >> from >> to;
                     road.removeRoads(from, to);
                     road.removeRoads(to, from);
                     blockedRoads.push(from, to);
@@ -1136,16 +1134,16 @@ int main()
                 }
             case 7:
                 {
-                    cout<<"Enter the start and end intersection for vehicle routing: ";
+                    cout << "Enter the start and end intersection for vehicle routing: ";
                     char start, end;
-                    cin>>start>>end;
-                    cout<<"All Possible Paths from "<<start<<" to "<<end<<endl;
-                    road.displayAllPaths(string(1,start), string(1,end));
+                    cin >> start >> end;
+                    cout << "All Possible Paths from " << start << " to " << end << endl;
+                    road.displayAllPaths(string(1, start), string(1, end));
                     break;
                 }
             case 8:
                 {
-                    cout<<"Working Road Network: "<<endl;
+                    cout << "Working Road Network: " << endl;
                     road.print();
                     break;
                 }
@@ -1153,26 +1151,36 @@ int main()
                 {
                     EmergencyVehicleHandling evHandler(&road, &signals);
                     read_emergencyVehicle("emergency_vehicles.csv", evHandler);
-                    evHandler.~EmergencyVehicleHandling();
                     break;
                 }
             case 10:
                 {
-                    cout<<"Enter Start and End Intersection to apply Dijkstra's Algorithm: ";
+                    cout << "Enter Start and End Intersection to apply Dijkstra's Algorithm: ";
                     char start, end;
-                    cin>>start>>end;
-                    road.dijkstra(string(1,start), string(1,end));
+                    cin >> start >> end;
+                    road.dijkstra(string(1, start), string(1, end));
                     break;
                 }
             case 11:
                 {
-                    cout<<"----------------------------Exiting the Simulation-------------------------"<<endl;
-                    break;
-                
+                    cout << "----------------------------Exiting the Simulation-------------------------" << endl;
+                    return 0;
+                }
             default:
                 {
-                    cout<<"Invalid Choice"<<endl;
+                    cout << "Invalid Choice" << endl;
                 }
+        }
+
+        // Prompt user if they want to continue or exit
+        char continueChoice;
+        cout << "Do you want to perform another operation? (Y/N): ";
+        cin >> continueChoice;
+
+        // Exit loop if user inputs 'N' or 'n'
+        if (continueChoice == 'N' || continueChoice == 'n') {
+            cout << "Exiting the simulation..." << endl;
+            break;
         }
     }
 
