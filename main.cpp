@@ -1055,13 +1055,14 @@ void read_emergencyVehicle(const string& filename, EmergencyVehicleHandling& obj
     }
     file.close();
 }
-int main()
-{
+int main() {
+    // Create instances of your objects
     RoadNetwork Orignal_road, road;
     TrafficSignals signals;
     BlockedRoadStack blockedRoads;
     VehicleHashTable vehicleData;
 
+    // Placeholder for reading CSV files
     read_roadNetwork("road_network.csv", Orignal_road);
     read_roadNetwork("road_network.csv", road);
     read_trafficSignals("traffic_signals.csv", "vehicles.csv", signals);
@@ -1069,118 +1070,163 @@ int main()
     read_roadClosures("road_closures.csv", road, blockedRoads);
 
     int choice = 0;
+    // Create SFML window
+    sf::RenderWindow window(sf::VideoMode(800, 600), "Traffic Simulation Menu");
 
-    while(true)
-    {
-        cout << "-------Simulation of Traffic Signals and Emergency Vehicle Handling-------" << endl;
-        cout << "1. Display the City Traffic Network (Initial)" << endl;
-        cout << "2. Display Traffic Signal Status" << endl;
-        cout << "3. Display Congestion Status" << endl;
-        cout << "4. Display Blocked Roads" << endl;
-        cout << "5. Handle Emergency Vehicle Routing" << endl;
-        cout << "6. Block Roads due to Accident" << endl;
-        cout << "7. Simulate Vehicle Routing" << endl;
-        cout << "8. Display the City Network of Working Roads" << endl;
-        cout << "9. Handle Emergency Vehicle Routing for CSV file" << endl;
-        cout << "10. Apply Dijkstra's Algorithm" << endl;
-        cout << "11. Exit" << endl;
-        cout << "---------------------------------------------------------------------------" << endl;
+    // Load font for text
+    sf::Font font;
+    if (!font.loadFromFile("arial.ttf")) {
+        std::cerr << "Error loading font\n";
+        return -1;
+    }
 
-        cout << "Enter your choice: ";
-        cin >> choice;
+    // Menu options
+    sf::Text option1("1. Display city traffic network", font, 30);
+    sf::Text option2("2. Display traffic signal status", font, 30);
+    sf::Text option3("3. Display congestion status", font, 30);
+    sf::Text option4("4. Display blocked roads", font, 30);
+    sf::Text option5("5. Handle emergency vehicles Routing", font, 30);
+    sf::Text option6("6. Block road due to accident", font, 30);
+    sf::Text option7("7. Stimulate vehicle routing", font, 30);
+    sf::Text option8("8. Display City Network of Working Roads", font, 30);
+    sf::Text option9("9. Handle Emergency Routing for CSV", font, 30);
+    sf::Text option10("10. Apply Dijkstra Algorithm", font, 30);
+    sf::Text option11("11. Exit Simulation", font, 30);
 
-        switch(choice)
-        {
-            case 1:
-                {
-                    cout << "Initial Road Network: " << endl;
-                    Orignal_road.print();
-                    break;
-                }
-            case 2:
-                {
-                    signals.display();
-                    break;
-                }
-            case 3:
-                {
-                    vehicleData.displayCongestion();
-                    break;
-                }
-            case 4:
-                {
-                    blockedRoads.print();
-                    break;
-                }
-            case 5:
-                {
-                    cout << "Enter the start and end intersection for emergency vehicle routing: ";
-                    char start, end;
-                    cin >> start >> end;
-                    cout << "Emergency Vehicle is being Routed...." << endl;
-                    EmergencyVehicleHandling evHandler(&road, &signals);
-                    evHandler.handleEmergencyVehicle(string(1, start), string(1, end));
-                    break;
-                }
-            case 6:
-                {
-                    cout << "Enter the road to be blocked (start , end): ";
-                    string from, to;
-                    cin >> from >> to;
-                    road.removeRoads(from, to);
-                    road.removeRoads(to, from);
-                    blockedRoads.push(from, to);
-                    break;
-                }
-            case 7:
-                {
-                    cout << "Enter the start and end intersection for vehicle routing: ";
-                    char start, end;
-                    cin >> start >> end;
-                    cout << "All Possible Paths from " << start << " to " << end << endl;
-                    road.displayAllPaths(string(1, start), string(1, end));
-                    break;
-                }
-            case 8:
-                {
-                    cout << "Working Road Network: " << endl;
-                    road.print();
-                    break;
-                }
-            case 9:
-                {
-                    EmergencyVehicleHandling evHandler(&road, &signals);
-                    read_emergencyVehicle("emergency_vehicles.csv", evHandler);
-                    break;
-                }
-            case 10:
-                {
-                    cout << "Enter Start and End Intersection to apply Dijkstra's Algorithm: ";
-                    char start, end;
-                    cin >> start >> end;
-                    road.dijkstra(string(1, start), string(1, end));
-                    break;
-                }
-            case 11:
-                {
-                    cout << "----------------------------Exiting the Simulation-------------------------" << endl;
-                    return 0;
-                }
-            default:
-                {
-                    cout << "Invalid Choice" << endl;
-                }
-        }
+    // Position menu options
+    option1.setPosition(200, 100);
+    option2.setPosition(200, 150);
+    option3.setPosition(200, 200);
+    option4.setPosition(200, 250);
+    option5.setPosition(200, 300);
+    option6.setPosition(200, 350);
+    option7.setPosition(200, 400);
+    option8.setPosition(200, 450);
+    option9.setPosition(200, 500);
+    option10.setPosition(200, 550);
+    option11.setPosition(200, 600);
 
-        // Prompt user if they want to continue or exit
-        char continueChoice;
-        cout << "Do you want to perform another operation? (Y/N): ";
-        cin >> continueChoice;
+    int selectedOption = 0;
+    option1.setFillColor(sf::Color::Red);
 
-        // Exit loop if user inputs 'N' or 'n'
-        if (continueChoice == 'N' || continueChoice == 'n') {
-            cout << "Exiting the simulation..." << endl;
-            break;
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+
+            if (event.type == sf::Event::KeyPressed) {
+                // Move selection up and down
+                if (event.key.code == sf::Keyboard::Up && selectedOption > 0) {
+                    selectedOption--;
+                } else if (event.key.code == sf::Keyboard::Down && selectedOption < 10) {
+                    selectedOption++;
+                }
+
+                // Change color based on selection
+                option1.setFillColor(selectedOption == 0 ? sf::Color::Red : sf::Color::White);
+                option2.setFillColor(selectedOption == 1 ? sf::Color::Red : sf::Color::White);
+                option3.setFillColor(selectedOption == 2 ? sf::Color::Red : sf::Color::White);
+                option4.setFillColor(selectedOption == 3 ? sf::Color::Red : sf::Color::White);
+                option5.setFillColor(selectedOption == 4 ? sf::Color::Red : sf::Color::White);
+                option6.setFillColor(selectedOption == 5 ? sf::Color::Red : sf::Color::White);
+                option7.setFillColor(selectedOption == 6 ? sf::Color::Red : sf::Color::White);
+                option8.setFillColor(selectedOption == 7 ? sf::Color::Red : sf::Color::White);
+                option9.setFillColor(selectedOption == 8 ? sf::Color::Red : sf::Color::White);
+                option10.setFillColor(selectedOption == 9 ? sf::Color::Red : sf::Color::White);
+                option11.setFillColor(selectedOption == 10 ? sf::Color::Red : sf::Color::White);
+
+                // Execute action when Enter is pressed
+                if (event.key.code == sf::Keyboard::Enter) {
+                    switch (selectedOption) {
+                        case 0:
+                            std::cout << "Displaying city traffic network...\n";
+                            std::cout << "Initial Road Network: " << std::endl;
+                            Orignal_road.print();
+                            break;
+                        case 1:
+                            std::cout << "Displaying traffic signal status...\n";
+                            signals.display();
+                            break;
+                        case 2:
+                            std::cout << "Displaying congestion status...\n";
+                            vehicleData.displayCongestion();
+                            break;
+                        case 3:
+                            std::cout << "Displaying blocked roads...\n";
+                            blockedRoads.print();
+                            break;
+                        case 4: {
+                            std::cout << "Handling emergency vehicles...\n";
+                            std::cout << "Enter the start and end intersection for emergency vehicle routing: ";
+                            char start, end;
+                            std::cin >> start >> end;
+                            std::cout << "Emergency Vehicle is being Routed...." << std::endl;
+                            EmergencyVehicleHandling evHandler(&road, &signals);
+                            evHandler.handleEmergencyVehicle(std::string(1, start), std::string(1, end));
+                            break;
+                        }
+                        case 5: {
+                            std::cout << "Blocking road due to accident...\n";
+                            std::cout << "Enter the road to be blocked (start, end): ";
+                            std::string from, to;
+                            std::cin >> from >> to;
+                            road.removeRoads(from, to);
+                            road.removeRoads(to, from);
+                            blockedRoads.push(from, to);
+                            break;
+                        }
+                        case 6: {
+                            std::cout << "Stimulating vehicle routing...\n";
+                            std::cout << "Enter the start and end intersection for vehicle routing: ";
+                            char start, end;
+                            std::cin >> start >> end;
+                            std::cout << "All Possible Paths from " << start << " to " << end << std::endl;
+                            road.displayAllPaths(std::string(1, start), std::string(1, end));
+                            break;
+                        }
+                        case 7: {
+                            std::cout << "Working Road Network: " << std::endl;
+                            road.print();
+                            break;
+                        }
+                        case 8: {
+                            EmergencyVehicleHandling evHandler(&road, &signals);
+                            read_emergencyVehicle("emergency_vehicles.csv", evHandler);
+                            break;
+                        }
+                        case 9: {
+                            std::cout << "Enter Start and End Intersection to apply Dijkstra's Algorithm: ";
+                            char start, end;
+                            std::cin >> start >> end;
+                            road.dijkstra(std::string(1, start), std::string(1, end));
+                            break;
+                        }
+                        case 10:
+                            std::cout << "Exiting simulation...\n";
+                            window.close(); // Exit the program
+                            break;
+                        default:
+                            std::cout << "Invalid option\n";
+                            break;
+                    }
+                }
+            }
+
+            // Clear the window and redraw the options
+            window.clear();
+            window.draw(option1);
+            window.draw(option2);
+            window.draw(option3);
+            window.draw(option4);
+            window.draw(option5);
+            window.draw(option6);
+            window.draw(option7);
+            window.draw(option8);
+            window.draw(option9);
+            window.draw(option10);
+            window.draw(option11);
+            window.display();
         }
     }
 
