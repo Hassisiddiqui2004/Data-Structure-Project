@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <sstream>
 
 using namespace std;
 
@@ -713,119 +712,6 @@ public:
         }
     }
 };
-void read_trafficSignals(const string& trafficFile, const string& vehicleFile, TrafficSignals& obj) {
-    ifstream trafficStream(trafficFile);
-    ifstream vehicleStream(vehicleFile);
-
-    if (!trafficStream.is_open()) {
-        cerr << "Error: Could not open traffic signals file " << trafficFile << endl;
-        return;
-    }
-
-    if (!vehicleStream.is_open()) {
-        cerr << "Error: Could not open vehicles file " << vehicleFile << endl;
-        return;
-    }
-
-    // Step 1: Read and count vehicles at each intersection (from 2nd column of vehicles.csv)
-    const int MAX_INTERSECTIONS = 100;
-    string roads[MAX_INTERSECTIONS];
-    int vehicleCounts[MAX_INTERSECTIONS] = {0};
-    int roadCount = 0;
-
-    string line;
-    while (getline(vehicleStream, line)) {
-        stringstream ss(line);
-        string vehicleID, road;
-
-        // Read Vehicle ID (ignored) and Starting Intersection
-        if (getline(ss, vehicleID, ',') && getline(ss, road, ',')) {
-            bool found = false;
-            for (int i = 0; i < roadCount; ++i) {
-                if (roads[i] == road) {
-                    vehicleCounts[i]++;
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found && roadCount < MAX_INTERSECTIONS) {
-                roads[roadCount] = road;
-                vehicleCounts[roadCount] = 1;
-                roadCount++;
-            }
-        }
-    }
-
-    vehicleStream.close();
-
-    // Step 2: Read traffic signals and insert nodes
-    while (getline(trafficStream, line)) {
-        stringstream ss(line);
-        string road;
-        string signalTimeStr;
-        int signalTime;
-
-        if (getline(ss, road, ',') && getline(ss, signalTimeStr)) {
-            try {
-                signalTime = stoi(signalTimeStr);
-                obj.insert(road, signalTime);
-            } catch (const invalid_argument&) {
-                cerr << "Error: Invalid data format in line: " << line << endl;
-            }
-        }
-    }
-
-    trafficStream.close();
-
-    // Step 3: Use UpdateVehiclesCount to update vehicle counts for each intersection
-    for (int i = 0; i < roadCount; ++i) {
-        obj.UpdateVehiclesCount(roads[i], vehicleCounts[i]);
-    }
-}
-
-// Function to read road closures and remove corresponding roads
-void read_roadClosures(const string& filename, RoadNetwork& road, BlockedRoadStack& blockedRoads) {
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cout << "Error: Unable to open the road closure file" << endl;
-        return;
-    }
-
-    string line;
-    getline(file, line); // Skip the first line (header)
-
-    while (getline(file, line)) {
-        // Find the positions of the delimiters
-        int pos1 = line.find(',');
-        int pos2 = line.find_last_of(',');
-
-        // Validate positions
-        if (pos1 == -1 || pos2 == -1 || pos1 == pos2) {
-            cout << "Error: Invalid line format: " << line << endl;
-            continue;
-        }
-
-        // Extract fields
-        string from = line.substr(0, pos1);
-        string to = line.substr(pos1 + 1, pos2 - pos1 - 1);
-
-        // Push the blocked road to the stack
-        string status = line.substr(pos2+1);
-        if(status == "Blocked")
-        {
-            blockedRoads.push(from, to);
-        }
-        // Remove the road
-        if(status == "Clear")
-        {
-            road.removeRoads(from, to);
-            road.removeRoads(to, from);
-        }  // Since roads are bi-directional
-    }
-
-    file.close();
-}
 
 class VehicleHashTable {
 private:
@@ -959,6 +845,118 @@ public:
 };
 
 
+
+// Function to read road closures and remove corresponding roads
+void read_roadClosures(const string& filename, RoadNetwork& road, BlockedRoadStack& blockedRoads) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cout << "Error: Unable to open the road closure file" << endl;
+        return;
+    }
+
+    string line;
+    getline(file, line); // Skip the first line (header)
+
+    while (getline(file, line)) {
+        // Find the positions of the delimiters
+        int pos1 = line.find(',');
+        int pos2 = line.find_last_of(',');
+
+        // Validate positions
+        if (pos1 == -1 || pos2 == -1 || pos1 == pos2) {
+            cout << "Error: Invalid line format: " << line << endl;
+            continue;
+        }
+
+        // Extract fields
+        string from = line.substr(0, pos1);
+        string to = line.substr(pos1 + 1, pos2 - pos1 - 1);
+
+        // Push the blocked road to the stack
+        string status = line.substr(pos2+1);
+        if(status == "Blocked")
+        {
+            blockedRoads.push(from, to);
+        }
+        // Remove the road
+        if(status == "Clear")
+        {
+            road.removeRoads(from, to);
+            road.removeRoads(to, from);
+        }  // Since roads are bi-directional
+    }
+
+    file.close();
+}
+
+void read_trafficSignals(const std::string& trafficFile, const std::string& vehicleFile, TrafficSignals& obj) {
+    std::ifstream trafficStream(trafficFile);
+    std::ifstream vehicleStream(vehicleFile);
+
+    if (!trafficStream.is_open()) {
+        std::cerr << "Error: Could not open traffic signals file " << trafficFile << std::endl;
+        return;
+    }
+
+    if (!vehicleStream.is_open()) {
+        std::cerr << "Error: Could not open vehicles file " << vehicleFile << std::endl;
+        return;
+    }
+
+    const int MAX_INTERSECTIONS = 100;
+    std::string roads[MAX_INTERSECTIONS];
+    int vehicleCounts[MAX_INTERSECTIONS] = {0};
+    int roadCount = 0;
+
+    std::string line;
+    int index = 0;
+    while (std::getline(vehicleStream, line)) {
+        size_t pos = line.find(',');
+        if (pos != std::string::npos) {
+            std::string road = line.substr(pos + 1);
+            road = road.substr(0, road.find(','));
+
+            bool found = false;
+            for (int i = 0; i < roadCount; ++i) {
+                if (roads[i] == road) {
+                    vehicleCounts[i]++;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found && roadCount < MAX_INTERSECTIONS) {
+                roads[roadCount] = road;
+                vehicleCounts[roadCount] = 1;
+                roadCount++;
+            }
+        }
+    }
+
+    vehicleStream.close();
+
+    index = 0;
+    while (std::getline(trafficStream, line)) {
+        size_t pos = line.find(',');
+        if (pos != std::string::npos) {
+            std::string road = line.substr(0, pos);
+            std::string signalTimeStr = line.substr(pos + 1);
+
+            try {
+                int signalTime = std::stoi(signalTimeStr);
+                obj.insert(road, signalTime);
+            } catch (const std::invalid_argument&) {
+                std::cerr << "Error: Invalid data format in line: " << line << std::endl;
+            }
+        }
+    }
+
+    trafficStream.close();
+
+    for (int i = 0; i < roadCount; ++i) {
+        obj.UpdateVehiclesCount(roads[i], vehicleCounts[i]);
+    }
+}
 
 // Function to read vehicle data from a CSV file
 void read_vehicles(const string& filename, VehicleHashTable& obj) {
