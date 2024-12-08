@@ -315,6 +315,19 @@ public:
         }
         return NULL;
     }
+    ~RoadNetwork() {
+        while (head) {
+            IntersectionNode* temp = head;
+            head = head->next;
+            Travel_time* edge = temp->edge;
+            while (edge) {
+                Travel_time* tempEdge = edge;
+                edge = edge->next;
+                delete tempEdge;
+            }
+            delete temp;
+        }
+    }
 };
 // Custom stack class for storing blocked roads
 class BlockedRoadStack {
@@ -497,55 +510,17 @@ public:
             }
         }
     }
+    ~TrafficSignals() {
+        while (head) {
+            RoadSignals* temp = head;
+            head = head->next;
+            delete temp;
+        }
+    }
 };
 
 
-// Function to read the road network data from a CSV file
-void read_roadNetwork(const string& filename, RoadNetwork& road) {
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cout << "Error: Unable to open the file" << endl;
-        return;
-    }
 
-    string line;
-    getline(file, line); // Skip the first line (header)
-
-    while (getline(file, line)) {
-        // Find the positions of the delimiters
-        int pos1 = line.find(',');
-        int pos2 = line.find_last_of(',');
-
-        // Validate positions
-        if (pos1 == -1 || pos2 == -1 || pos1 == pos2) {
-            cout << "Error: Invalid line format: " << line << endl;
-            continue;
-        }
-
-        // Extract fields
-        string from = line.substr(0, pos1);
-        string to = line.substr(pos1 + 1, pos2 - pos1 - 1);
-        string weightStr = line.substr(pos2 + 1);
-
-        // Check if weightStr is a valid number
-        bool isValidNumber = true;
-        for (char c : weightStr) {
-            if (!isdigit(c)) {
-                isValidNumber = false;
-                break;
-            }
-        }
-
-        if (isValidNumber) {
-            int weight = stoi(weightStr); // Convert the weight to an integer
-                     road.addTravelTime(from, to, weight);
-        } else {
-            cout << "Error: Invalid weight value in line: " << line << endl;
-        }
-    }
-
-    file.close();
-}
 
 class EmergencyVehicleHandling {
 public:
@@ -711,6 +686,11 @@ public:
             cout << "Restored green time at intersection " << intersection << " to " << normalGreenTime << "." << endl;
         }
     }
+    ~EmergencyVehicleHandling() 
+    {
+        roadNetwork = nullptr;
+        trafficSignals = nullptr;
+    }
 };
 
 class VehicleHashTable {
@@ -844,7 +824,52 @@ public:
     }
 };
 
+// Function to read the road network data from a CSV file
+void read_roadNetwork(const string& filename, RoadNetwork& road) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cout << "Error: Unable to open the file" << endl;
+        return;
+    }
 
+    string line;
+    getline(file, line); // Skip the first line (header)
+
+    while (getline(file, line)) {
+        // Find the positions of the delimiters
+        int pos1 = line.find(',');
+        int pos2 = line.find_last_of(',');
+
+        // Validate positions
+        if (pos1 == -1 || pos2 == -1 || pos1 == pos2) {
+            cout << "Error: Invalid line format: " << line << endl;
+            continue;
+        }
+
+        // Extract fields
+        string from = line.substr(0, pos1);
+        string to = line.substr(pos1 + 1, pos2 - pos1 - 1);
+        string weightStr = line.substr(pos2 + 1);
+
+        // Check if weightStr is a valid number
+        bool isValidNumber = true;
+        for (char c : weightStr) {
+            if (!isdigit(c)) {
+                isValidNumber = false;
+                break;
+            }
+        }
+
+        if (isValidNumber) {
+            int weight = stoi(weightStr); // Convert the weight to an integer
+                     road.addTravelTime(from, to, weight);
+        } else {
+            cout << "Error: Invalid weight value in line: " << line << endl;
+        }
+    }
+
+    file.close();
+}
 
 // Function to read road closures and remove corresponding roads
 void read_roadClosures(const string& filename, RoadNetwork& road, BlockedRoadStack& blockedRoads) {
@@ -890,30 +915,30 @@ void read_roadClosures(const string& filename, RoadNetwork& road, BlockedRoadSta
 }
 
 void read_trafficSignals(const std::string& trafficFile, const std::string& vehicleFile, TrafficSignals& obj) {
-    std::ifstream trafficStream(trafficFile);
-    std::ifstream vehicleStream(vehicleFile);
+    ifstream trafficStream(trafficFile);
+    ifstream vehicleStream(vehicleFile);
 
     if (!trafficStream.is_open()) {
-        std::cerr << "Error: Could not open traffic signals file " << trafficFile << std::endl;
+        cerr << "Error: Could not open traffic signals file " << trafficFile << std::endl;
         return;
     }
 
     if (!vehicleStream.is_open()) {
-        std::cerr << "Error: Could not open vehicles file " << vehicleFile << std::endl;
+        cerr << "Error: Could not open vehicles file " << vehicleFile << std::endl;
         return;
     }
 
     const int MAX_INTERSECTIONS = 100;
-    std::string roads[MAX_INTERSECTIONS];
+    string roads[MAX_INTERSECTIONS];
     int vehicleCounts[MAX_INTERSECTIONS] = {0};
     int roadCount = 0;
 
-    std::string line;
+    string line;
     int index = 0;
     while (std::getline(vehicleStream, line)) {
         size_t pos = line.find(',');
         if (pos != std::string::npos) {
-            std::string road = line.substr(pos + 1);
+            string road = line.substr(pos + 1);
             road = road.substr(0, road.find(','));
 
             bool found = false;
@@ -936,11 +961,11 @@ void read_trafficSignals(const std::string& trafficFile, const std::string& vehi
     vehicleStream.close();
 
     index = 0;
-    while (std::getline(trafficStream, line)) {
+    while (getline(trafficStream, line)) {
         size_t pos = line.find(',');
         if (pos != std::string::npos) {
-            std::string road = line.substr(0, pos);
-            std::string signalTimeStr = line.substr(pos + 1);
+            string road = line.substr(0, pos);
+            string signalTimeStr = line.substr(pos + 1);
 
             try {
                 int signalTime = std::stoi(signalTimeStr);
@@ -1001,55 +1026,155 @@ void read_vehicles(const string& filename, VehicleHashTable& obj) {
 
     file.close();
 }
+void read_emergencyVehicle(const string& filename, EmergencyVehicleHandling& obj) 
+{
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cout << "Error: Unable to open the road closure file" << endl;
+        return;
+    }
 
-int main() {
-    RoadNetwork road;
+    string line;
+    getline(file, line); // Skip the first line (header)
+    int i = 0;
+    while (getline(file, line)) {
+        // Find the positions of the delimiters
+        int pos1 = line.find(',');
+        int pos2 = line.find_last_of(',');
+
+        // Validate positions
+        if (pos1 == -1 || pos2 == -1 || pos1 == pos2) {
+            cout << "Error: Invalid line format: " << line << endl;
+            continue;
+        }
+
+        // Extract fields
+        string from = line.substr(pos1+1, 1);
+        string to = line.substr(pos2 - 1, 1);
+        obj.handleEmergencyVehicle(from, to);
+    }
+    file.close();
+}
+int main()
+{
+    RoadNetwork Orignal_road,road;
     TrafficSignals signals;
     BlockedRoadStack blockedRoads;
     VehicleHashTable vehicleData;
-
-    // Read road network data from CSV file
+    read_roadNetwork("road_network.csv", Orignal_road);
     read_roadNetwork("road_network.csv", road);
-    
-    // Print the initial road network
-    cout << "Initial Road Network: " << endl;
-    road.print();
-    
-
-    // Example usage: Calculate all possible paths between intersections
-    // Print all possible paths
-    string start = "A";
-    string destination = "F";
-    cout<<"displaying all paths from A to F"<<endl;
-    road.displayAllPaths(start, destination);
-
-    // Read road closures from a file and update the road network
+    read_trafficSignals("traffic_signals.csv","vehicles.csv", signals );
+    read_vehicles("vehicles.csv", vehicleData);
     read_roadClosures("road_closures.csv", road, blockedRoads);
 
-    // Print the updated road network after road closures
-    cout << "\nUpdated Road Network (After Road Closures): " << endl;
-    road.print();
 
-    // Calculate the shortest path after road closures
-    cout << "\nShortest Path (After Dijkstra's with Road Closures): " << endl;
-    road.dijkstra("A", "F");
+    cout<<"-------Simulation of Traffic Signals and Emergency Vehicle Handling-------"<<endl;
+    cout<<"1. Display the City Traffic Network(initial)"<<endl;
+    cout<<"2. Display Traffic Signal Status"<<endl;
+    cout<<"3. Display Congestion Status"<<endl;
+    cout<<"4. Display Blocked Roads"<<endl;
+    cout<<"5. Handle Emergency Vehicle Routing"<<endl;
+    cout<<"6. Block Roads due to Accident"<<endl;
+    cout<<"7. Simulate Vehicle Routing"<<endl;
+    cout<<"8. Display the City Network of Working Roads"<<endl;
+    cout<<"9. Handle Emergency Vehicle Routing for CSV file"<<endl;
+    cout<<"10. Apply Dijkstra's Algorithm"<<endl;
+    cout<<"11. Exit"<<endl;
+    cout<<"---------------------------------------------------------------------------"<<endl;
 
-    read_trafficSignals("traffic_signals.csv","vehicles.csv", signals );
-    signals.calculateNewGreenTimes();
-    signals.display();
+    int choice = 0;
 
-    blockedRoads.print();
+    while(true)
+    {
+        if(choice == 11)
+        break;
+        cout<<"Enter your choice: ";
+        cin>>choice;
+        switch(choice)
+        {
+            case 1:
+                {
+                    cout<<"Initial Road Network: "<<endl;
+                    Orignal_road.print();
+                    break;
+                }
+            case 2:
+                {
+                    signals.display();
+                    break;
+                }
+            case 3:
+                {
+                    vehicleData.displayCongestion();
+                    break;
+                }
+            case 4:
+                {
+                    blockedRoads.print();
+                    break;
+                }
+            case 5:
+                {
+                    cout<<"Enter the start and end intersection for emergency vehicle routing: ";
+                    char start, end;
+                    cin>>start>>end;
+                    cout<<"Emergency Vehicle is being Routed...."<<endl;
+                    EmergencyVehicleHandling evHandler(&road, &signals);
+                    evHandler.handleEmergencyVehicle(string(1,start), string(1,end));
+                    evHandler.~EmergencyVehicleHandling();
+                    break;
+                }
+            case 6:
+                {
+                    cout<<"Enter the road to be blocked(start , end): ";
+                    string from, to;
+                    cin>>from>>to;
+                    road.removeRoads(from, to);
+                    road.removeRoads(to, from);
+                    blockedRoads.push(from, to);
+                    break;
+                }
+            case 7:
+                {
+                    cout<<"Enter the start and end intersection for vehicle routing: ";
+                    char start, end;
+                    cin>>start>>end;
+                    cout<<"All Possible Paths from "<<start<<" to "<<end<<endl;
+                    road.displayAllPaths(string(1,start), string(1,end));
+                    break;
+                }
+            case 8:
+                {
+                    cout<<"Working Road Network: "<<endl;
+                    road.print();
+                    break;
+                }
+            case 9:
+                {
+                    EmergencyVehicleHandling evHandler(&road, &signals);
+                    read_emergencyVehicle("emergency_vehicles.csv", evHandler);
+                    evHandler.~EmergencyVehicleHandling();
+                    break;
+                }
+            case 10:
+                {
+                    cout<<"Enter Start and End Intersection to apply Dijkstra's Algorithm: ";
+                    char start, end;
+                    cin>>start>>end;
+                    road.dijkstra(string(1,start), string(1,end));
+                    break;
+                }
+            case 11:
+                {
+                    cout<<"----------------------------Exiting the Simulation-------------------------"<<endl;
+                    break;
+                
+            default:
+                {
+                    cout<<"Invalid Choice"<<endl;
+                }
+        }
+    }
 
-    // Read vehicle data from a CSV file
-    read_vehicles("vehicles.csv", vehicleData);
-
-    // Display the vehicle data
-    cout << "\nVehicle Data: " << endl;
-    vehicleData.display();
-
-    EmergencyVehicleHandling evHandler(&road, &signals);
-
-    // Handle emergency vehicle from A to F
-    evHandler.handleEmergencyVehicle("A", "F");
     return 0;
 }
