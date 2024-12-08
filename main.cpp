@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <sstream>
 
 using namespace std;
 
@@ -26,13 +27,14 @@ struct IntersectionNode {
 struct RoadSignals {
     string Road;
     int SignalTime;
+    int VehicleCount;
     RoadSignals* next;
 
     bool operator< (RoadSignals& a) {
         return this->SignalTime < a.SignalTime;
     }
 
-    RoadSignals(string r, int t) : Road(r), SignalTime(t), next(nullptr) {}
+    RoadSignals(string r, int t) : Road(r), SignalTime(t), VehicleCount(0), next(nullptr) {}
 };
 
 struct StackNode {
@@ -408,8 +410,7 @@ public:
     }
 
     // Display all signals in the queue
-    void display() 
-    {
+    void display() {
         if (!head) {
             cout << "Traffic signal queue is empty!" << endl;
             return;
@@ -417,7 +418,9 @@ public:
 
         RoadSignals* temp = head;
         while (temp) {
-            cout << "InterSection : " << temp->Road << ", Green Time: " << temp->SignalTime << endl;
+            cout << "Intersection: " << temp->Road 
+                 << ", Green Time: " << temp->SignalTime 
+                 << ", Vehicles: " << temp->VehicleCount << endl;
             temp = temp->next;
         }
     }
@@ -436,6 +439,29 @@ public:
                 temp = temp->next;
             }
             return greenTime;
+        }
+    }
+    void UpdateVehiclesCount(string r, int v) {
+        RoadSignals* temp = head;
+
+        while (temp) {
+            if (temp->Road == r) {
+                temp->VehicleCount = v;
+                return;
+            }
+            temp = temp->next;
+        }
+
+        cerr << "Error: Intersection " << r << " not found in the traffic signals list." << endl;
+    }
+
+    void calculateNewGreenTimes() {
+        RoadSignals* temp = head;
+        while (temp) {
+            if (temp->VehicleCount > 1) {
+                temp->SignalTime += 5 * (temp->VehicleCount - 1);
+            }
+            temp = temp->next;
         }
     }
     void setGreenTime(string intersection, int time, int index) {
@@ -687,63 +713,75 @@ public:
         }
     }
 };
-// Function to read traffic signals from a CSV file
-void read_trafficSignals(const string& filename, TrafficSignals& obj) {
-    ifstream file(filename);
+void read_trafficSignals(const string& trafficFile, const string& vehicleFile, TrafficSignals& obj) {
+    ifstream trafficStream(trafficFile);
+    ifstream vehicleStream(vehicleFile);
 
-    // Check if file opened successfully
-    if (!file.is_open()) {
-        cerr << "Error: Could not open file " << filename << endl;
+    if (!trafficStream.is_open()) {
+        cerr << "Error: Could not open traffic signals file " << trafficFile << endl;
         return;
     }
 
+    if (!vehicleStream.is_open()) {
+        cerr << "Error: Could not open vehicles file " << vehicleFile << endl;
+        return;
+    }
+
+    // Step 1: Read and count vehicles at each intersection (from 2nd column of vehicles.csv)
+    const int MAX_INTERSECTIONS = 100;
+    string roads[MAX_INTERSECTIONS];
+    int vehicleCounts[MAX_INTERSECTIONS] = {0};
+    int roadCount = 0;
+
     string line;
-    while (getline(file, line)) {
-        int commaPos = -1;
+    while (getline(vehicleStream, line)) {
+        stringstream ss(line);
+        string vehicleID, road;
 
-        // Find the position of the comma
-        for (int i = 0; i < line.length(); i++) {
-            if (line[i] == ',') {
-                commaPos = i;
-                break;
-            }
-        }
-
-        // Validate the format
-        if (commaPos == -1) {
-            cerr << "Error: Invalid line format: " << line << endl;
-            continue;
-        }
-
-        // Extract the road name and signal time
-        string road = line.substr(0, commaPos);
-        string signalTimeStr = line.substr(commaPos + 1);
-
-        // Validate signal time
-        bool valid = true;
-        for (int i = 0; i < signalTimeStr.length(); i++) {
-            if (!isdigit(signalTimeStr[i])) {
-                valid = false;
-                break;
-            }
-        }
-
-        if (valid) {
-            int signalTime = 0;
-
-            // Convert signalTimeStr to an integer
-            for (int i = 0; i < signalTimeStr.length(); i++) {
-                signalTime = signalTime * 10 + (signalTimeStr[i] - '0');
+        // Read Vehicle ID (ignored) and Starting Intersection
+        if (getline(ss, vehicleID, ',') && getline(ss, road, ',')) {
+            bool found = false;
+            for (int i = 0; i < roadCount; ++i) {
+                if (roads[i] == road) {
+                    vehicleCounts[i]++;
+                    found = true;
+                    break;
+                }
             }
 
-            // Insert into the TrafficSignals object
-            obj.insert(road, signalTime);
-        } else {
-            cerr << "Error: Invalid signal time in line: " << line << endl;
+            if (!found && roadCount < MAX_INTERSECTIONS) {
+                roads[roadCount] = road;
+                vehicleCounts[roadCount] = 1;
+                roadCount++;
+            }
         }
     }
 
-    file.close();
+    vehicleStream.close();
+
+    // Step 2: Read traffic signals and insert nodes
+    while (getline(trafficStream, line)) {
+        stringstream ss(line);
+        string road;
+        string signalTimeStr;
+        int signalTime;
+
+        if (getline(ss, road, ',') && getline(ss, signalTimeStr)) {
+            try {
+                signalTime = stoi(signalTimeStr);
+                obj.insert(road, signalTime);
+            } catch (const invalid_argument&) {
+                cerr << "Error: Invalid data format in line: " << line << endl;
+            }
+        }
+    }
+
+    trafficStream.close();
+
+    // Step 3: Use UpdateVehiclesCount to update vehicle counts for each intersection
+    for (int i = 0; i < roadCount; ++i) {
+        obj.UpdateVehiclesCount(roads[i], vehicleCounts[i]);
+    }
 }
 
 // Function to read road closures and remove corresponding roads
@@ -998,7 +1036,8 @@ int main() {
     cout << "\nShortest Path (After Dijkstra's with Road Closures): " << endl;
     road.dijkstra("A", "F");
 
-    read_trafficSignals("traffic_signals.csv", signals );
+    read_trafficSignals("traffic_signals.csv","vehicles.csv", signals );
+    signals.calculateNewGreenTimes();
     signals.display();
 
     blockedRoads.print();
